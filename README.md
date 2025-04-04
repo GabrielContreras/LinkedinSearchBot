@@ -29,7 +29,91 @@ AWS Eventbridge scheduler can be used to automate this process. This will create
 > AWS can acrue a cost if usage goes past free tier credits.
 
 ## Getting Started
-TODO
+### Download repository and build using npm
+```
+npm install
+npx tsc
+```
+### Update .env file with personalized information
+
+Example:
+```
+AWS_REGION=US-EAST-2
+DYNAMODB_TABLE_NAME=JobPosts
+DYNAMODB_INDEX_NAME=ReportedIndex
+DISCORD_BOT_TOKEN=DISCORD_BOT_API_TOKEN
+DISCORD_CHANNEL_ID=DISCORD_CHANNEL_ID
+GEMINI_API_TOKEN=GEMINI_API_TOKEN
+JOB_SEARCH_KEYWORK="Software Engineer"
+LOCATION="United States"
+REMOTE="remote"     
+PERSONAL_DESCRIPTION="Primary language is typescript using nodejs. Backend developer position. 3 years of experience."
+```
+
+[Gemini API key](https://aistudio.google.com) <br>
+[Discord Bot API key](https://discord.com/developers/docs/quick-start/getting-started)
+
+### Go to the root dir and zip the project. Make sure there is no parent directory.
+```
+.
+├── README.md
+├── dist
+├── node_modules
+├── package-lock.json
+├── package.json
+├── src
+└── tsconfig.json
+```
+
+### Host on AWS. This will require the following services
+#### AWS Lambda
+Two lambdas need to be created. SearchJobsLambda and ProcessJobsLambda.
+1. SearchJobsLambda
+    * Runtime: Node.js 22.x
+    * Handler: dist/search_jobs_lambda.lambdaHandler
+    * Architecture: x86_64
+    * Timeout: 10 minutes
+    * Permissions (Recommend setting permissions to only run on resources created for this automation):
+        * DynamoDB GetItem
+        * DynamoDB PutItem
+        * DynamoDB UpdateItem
+
+2. ProcessJobsLambda
+    * Runtime: Node.js 22.x
+    * Handler: dist/process_jobs_lambda.lambdaHandler
+    * Architecture: x86_64
+    * Timeout: 10 minutes
+    * Permissions (Recommend setting permissions to only run on resources created for this automation):
+        * DynamoDB GetItem
+        * DynamoDB PutItem
+        * DynamoDB UpdateItem
+
+#### AWS DynamoDB
+Need to create a table and a global secondary index. Global secondary index will allow the ProcessJobsLambda to query for high ranking jobs more efficiently.
+1. DynamoDB Table
+    * Whatever name you use, make sure it matches what is put in the .env file.
+    * Partition Key: JobId
+    * Sort Key: (Keep empty)
+    * Time to Live (TTL): Set the attribute to ttl. This will purge job postings older than 1 week old.
+    * Recommended: To stay within the free tier, set capacity to provisioned with 5 RCU/WCU with auto scaling turned off.
+2. Global Secondary Index:
+    * Whatever name you use, make sure it matches what is put in the .env file
+    * Partition Key: reported (Number)
+    * Sort Key: jobScore (Number);
+    * Recommended: To stay within the free tier, set capacity to provisioned with 5 RCU/WCU with auto scaling turned off.
+
+#### AWS EventBridge
+To automate these jobs, we can use AWS EventBridge Scheduler to run the SearchJobsLambda and ProcessJobsLambda at set intervals. To avoid going past the free tier limit, I recommend the following settings for each lambda.
+
+1. SearchJobsLambda
+    * Run every 30 minutes
+    * Cron: 0/30 * * * ? *
+
+2. ProcessJobsLambda
+    * Run every 1 hour. Set the bounds to what hours you'd like to receive the notifications for. Below example if for 9am-5pm. Set to 10 minutes past SearchJobsLambda run to get most recent jobs.
+    * Cron: 10 9-18 * * ? *
+#### AWS CloudWatch
+AWS Lambda will automatically push logs to cloudwatch for each lambda execution. If any issues happen, you can view logs here.
 
 ## Examples
 TODO

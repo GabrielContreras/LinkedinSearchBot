@@ -25,8 +25,8 @@ const queryOptions: QueryOptions = {
   dateSincePosted: "24hr",
   jobType: "full time",
   remoteFilter: process.env.REMOTE ?? "remote",
-  salary: "120000",
-  limit: "10",
+  salary: "",
+  limit: "100",
   sortBy: "relevant",
   page: "0",
 };
